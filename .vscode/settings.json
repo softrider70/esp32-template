@@ -1,0 +1,9 @@
+{
+    "git.ignoreLimitWarning": true,
+    "github.copilot.chat.welcomeMessage": "never",
+    "github.copilot.advanced": {
+        "debug.overrideChatModel": "gpt-4",
+        "debug.testRequestMocking": false,
+        "debug.overrideProxyUrl": null
+    }
+}
