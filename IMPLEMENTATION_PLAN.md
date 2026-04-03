@@ -24,8 +24,6 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
 ### Phase 1: Template-Basisdateien
 1. `plan.md` aus `.windsurf/plans/esp32-template-plan-258012.md` nach `template/plan.md` kopieren.
 2. `CMakeLists.txt` (Top-Level) – ESP-IDF Build-Konfiguration mit Komponenten-Struktur
-   - Vorbereitet für `idf.py component` System
-   - Kann externe Komponenten (aus `idf_component_registry`) laden
 3. `src/main.c` als board-agnostisches ESP-IDF Einsteiger-Gerüst (app_main)
    - FreeRTOS Task Beispiel
    - NVS Initialization
@@ -35,38 +33,28 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
    - FreeRTOS Task Stack-Größen (Task-Defaults)
    - NVS-Keys für Secrets Management
    - UART/GPIO Pin-Definitionen (Board-agnostisch, Standard-Pins)
-5. `idf_component.yml` – Komponenten-Deklaration (initial leer)
-   - Ermöglicht externe Libraries via Espressif Component Registry
-   - Versionskontrolle für Dependencies
-   - Automatisches Download beim `idf.py build`
-6. `sdkconfig.defaults` (Board-agnostisch, Basis)
+5. `sdkconfig.defaults` (Board-agnostisch, Basis)
    - Logging Level
    - Core Frequency (80/160/240 MHz)
    - Partition Table Setting
-7. Fünf Board-spezifische `sdkconfig.defaults.<BOARD>` Varianten:
+6. Fünf Board-spezifische `sdkconfig.defaults.<BOARD>` Varianten:
    - `sdkconfig.defaults.esp32` – Standard Dual-Core
    - `sdkconfig.defaults.esp32s2` – Single-Core, `CONFIG_FREERTOS_NO_AFFINITY=y`
    - `sdkconfig.defaults.esp32s3` – Dual-Core, PSRAM
    - `sdkconfig.defaults.esp32c3` – Single-Core RISC-V, GPIO-Mapping
    - `sdkconfig.defaults.esp32c6` – Dual-Core, Thread-Support
-8. `CMakeLists.txt` (src/) für main.c Komponente
-9. `PROJECT.md.template` – Platzhalter für Projektname, Board, Power-Profil, FreeRTOS-Hinweise
-10. `README.md` – Generator-Workflow, ESP-IDF Setup-Anleitung, **Component Management Guide**
-11. `.github/agents/` – Lean-Workspace-Agent, Spezial-Agenten, copilot-instructions.md
-12. `.github/skills/build-project/` – Build-Skill
+7. `CMakeLists.txt` (src/) für main.c Komponente
+8. `PROJECT.md.template` – Platzhalter für Projektname, Board, Power-Profil, FreeRTOS-Hinweise
+9. `README.md` – Generator-Workflow, ESP-IDF Setup-Anleitung
+10. `.github/agents/` – Lean-Workspace-Agent, Spezial-Agenten, copilot-instructions.md
+11. `.github/skills/build-project/` – Build-Skill
     - `SKILL.md` – Copilot Chat Instruction
     - `build-project.ps1` – Script: `idf.py build`, Error-Handling
-13. `.github/skills/upload/` – Meta Upload-Skill
+12. `.github/skills/upload-firmware/` – Upload-Skill
     - `SKILL.md` – Copilot Chat Instruction
-    - `upload.ps1` – Script: Prüft Projekt-Status, ruft `/upload-firmware` oder `/initial-upload` auf
-14. `.github/skills/upload-firmware/` – Firmware Update-Skill
-    - `SKILL.md` – Copilot Chat Instruction
-    - `upload-firmware.ps1` – Script: `esptool.py write_flash 0x10000`, NUR App
-15. `.github/skills/initial-upload/` – Initial Installation-Skill
-    - `SKILL.md` – Copilot Chat Instruction
-    - `initial-upload.ps1` – Script: `esptool.py write_flash` mit Bootloader + Partition + App
-16. `SECURITY.md` – NVS-Setup, TLS/mTLS, Secure Boot Guide
-17. `BUILD_GUIDE.md` – Manuelle `idf.py build`, `esptool.py` Upload, Troubleshooting, **Component Registry Integration**
+    - `upload-firmware.ps1` – Script: Detect board, `esptool.py write_flash`, Error-Analyse, Retry-Build
+13. `SECURITY.md` – NVS-Setup, TLS/mTLS, Secure Boot Guide
+14. `BUILD_GUIDE.md` – Manuelle `idf.py build`, `esptool.py` Upload, Troubleshooting
 
 ### Phase 2: Generator-Script
 1. `new-project.ps1` in der Template-Root erstellen.
@@ -87,18 +75,13 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
    - `build-project.ps1` ist im Template vorhanden
    - User/Copilot ruft `/build-project` auf → Script führt `idf.py build` aus
    - Bei Fehler: Outputs zeigen, vorschlagen zu `idf.py menuconfig` (für Board-Konfiguration)
-5. Upload-Skills Setup:
-   - **`/upload`** (Meta-Skill) – Intelligente Auswahl durch Frage:
-     - Fragt User: "Is this the FIRST flash on this device? [j/n]"
-     - Ja (erstes Mal) → Ruft `/initial-upload` auf (Bootloader + Partition + App)
-     - Nein (Iteration) → Ruft `/upload-firmware` auf (nur App)
-     - Optional Override: `/upload --full` erzwingt `/initial-upload`
-   - **`/upload-firmware`** – Nur Firmware Update:
-     - `esptool.py write_flash 0x10000 build/esp32-template.bin`
-     - Schnell, für Development/Iterations
-   - **`/initial-upload`** – Vollständiger Flash:
-     - `esptool.py write_flash 0x0 bootloader.bin 0x8000 partition_table.bin 0x10000 app.bin`
-     - Für erste Installation oder Recovery
+5. Upload-Skill Setup:
+   - `upload-firmware.ps1` ist im Template vorhanden
+   - User/Copilot ruft `/upload-firmware` auf
+   - Script fragt nach COM-Port (z.B. COM3)
+   - Führt aus: `esptool.py --port COMx --baud 921600 write_flash 0x10000 build/esp32-template.bin`
+   - Error-Analyse: COM-Port nicht gefunden? esttool nicht installiert?
+   - Bei Fehler: Retry-Option: "Neuen Build versuchen? [j/n]" → `/build-project` aufrufen
 
 ### Phase 3: Robustheit
 1. Projektname validieren (nicht leer, keine ungueltigen Zeichen).
@@ -138,20 +121,14 @@ Hinweis: Alle genannten Varianten unterstützen FreeRTOS. Unterschiede liegen in
 4. `CHANGES.md` ist vorhanden und leer.
 5. `sdkconfig.defaults` existiert (Kopie von `sdkconfig.defaults.esp32c3`)
 6. `sdkconfig.defaults.*` (andere Varianten) sind **gelöscht**
-7. `config.h` ist Standard-Template (keine Board-spezifischen Conditionals)
-8. `idf_component.yml` existiert und ist initial leer (oder mit Kommentaren)
-9. `.github/agents/` und `.github/copilot-instructions.md` sind im Zielprojekt vorhanden.
-10. `.github/skills/build-project/`, `.github/skills/upload/`, `.github/skills/upload-firmware/`, `.github/skills/initial-upload/` sind vorhanden.
-11. `idf.py build` läuft ohne Fehler (oder mit Hinweis "IDF nicht installiert" [OK])
-12. **Skill-Test**: `/upload` fragt User und wählt korrekten Sub-Skill:
-    - "First flash? [j] → /initial-upload wird aufgerufen"
-    - "First flash? [n] → /upload-firmware wird aufgerufen"
-13. `/upload-firmware` Kommando: `esptool.py write_flash 0x10000 build/esp32-template.bin`
-14. `/initial-upload` Kommando: `esptool.py write_flash 0x0 bootloader.bin 0x8000 partition_table.bin 0x10000 app.bin`
-15. Testlauf S2: Validierung dass `CONFIG_FREERTOS_NO_AFFINITY=y` in `sdkconfig.defaults.esp32s2` vorhanden ist.
-16. `/upload --full` Override-Flag funktioniert (erzwingt `/initial-upload`)
-17. **Component Registry Test**: `idf_component.yml` kann manuell editiert werden, `idf.py build` lädt Dependencies
-18. Negativtests: ungültiger Projektname, ungültiges Board, existierender Zielordner.
+7. `config.h` ist Standard-Template (keine Board-spezifischen Conditionals nötig für Upload)
+8. `.github/agents/` und `.github/copilot-instructions.md` sind im Zielprojekt vorhanden.
+9. `.github/skills/build-project/` und `.github/skills/upload-firmware/` sind im Zielprojekt vorhanden.
+10. `idf.py build` läuft ohne Fehler (oder mit Hinweis "IDF nicht installiert" [OK])
+11. `upload-firmware.ps1` Kommando ist: `esptool.py --port COMx --baud 921600 write_flash 0x10000 build/esp32-template.bin`
+12. Testlauf S2: Validierung dass `CONFIG_FREERTOS_NO_AFFINITY=y` in `sdkconfig.defaults.esp32s2` vorhanden ist.
+13. Testlauf S3 vs ESP32: Upload-Kommando ist **identisch** (beide 0x10000)
+14. Negativtests: ungültiger Projektname, ungültiges Board, existierender Zielordner.
 
 ## Security & Best Practices
 
@@ -180,34 +157,19 @@ Hinweis: Alle genannten Varianten unterstützen FreeRTOS. Unterschiede liegen in
 - Funktion: Führt `idf.py build` im Projekt-Verzeichnis aus
 - Output: Build-Log, Erfolg/Fehler, Dateigröße Firmware
 - Error-Handling: Bei Fehler → Hinweis auf `idf.py menuconfig`
-- Persistiert: Build-Artefakte in `build/` für Upload-Skills
+- Persistiert: Build-Artefakte in `build/` für Upload-Skill
 
-### upload Meta-Skill (Smart Router)
-- Auslösung: `/upload` im Copilot Chat
-- Logik:
-  1. Fragt User: "Is this the FIRST flash on this device? [j/n]"
-  2. JA (first time) → ruft `/initial-upload` auf (Bootloader + Partition + App)
-  3. NEIN (iteration) → ruft `/upload-firmware` auf (nur App)
-  4. Optional Override: `/upload --full` erzwingt `/initial-upload`
-- Output: Welcher Upload wird verwendet + Einleitung zur nächsten Skill
-
-### upload-firmware Skill (App-Only)
-- Auslösung: `/upload-firmware` im Copilot Chat (oder via `/upload`)
+### upload-firmware Skill
+- Auslösung: `/upload-firmware` im Copilot Chat
 - Funktion:
   1. Fragt nach COM-Port: "Welcher COM-Port? (z.B. COM3)"
   2. Führt aus: `esptool.py --port COMx --baud 921600 write_flash 0x10000 build/esp32-template.bin`
-  3. (Schnell: nur App ~500KB, ~2-5 Sekunden)
-- Error-Analyse: COM-Port nicht verfügbar? Build-Artefakt fehlt?
-- Recovery: Bei Fehler → Vorschlag `/build-project`
-
-### initial-upload Skill (Vollständig)
-- Auslösung: `/initial-upload` im Copilot Chat (oder via `/upload`)
-- Funktion:
-  1. Fragt nach COM-Port
-  2. Führt aus: `esptool.py --port COMx write_flash 0x0 bootloader.bin 0x8000 partition_table.bin 0x10000 build/esp32-template.bin`
-  3. (Länger: alle Komponenten, ~10-20 Sekunden)
-- Use Cases: Erste Installation, Partition-Änderung, Recovery
-- Error-Analyse: Bootloader/Partition fehlt? COM-Port? Dann `/build-project` anbieten
+  3. (APP-only Flash: kompakt und schnell)
+- Error-Analyse:
+  - `Failed to connect`: COM-Port nicht verfügbar oder Board antwortet nicht
+  - `File not found`: Build-Artefakt fehlt → `/build-project` aufrufen
+  - `Timeout`: Board reagiert nicht, USB-Kabel prüfen oder Netzwerk-Probleme?
+  - Bei Fehler: Vorschlag "/build-project" aufzurufen
 - Recovery: Bei wiederholtem Fehler → Lnkt zu `BUILD_GUIDE.md` Troubleshooting
 
 ## Power Management Profile (ESP-IDF native)
@@ -221,38 +183,13 @@ Hinweis: Alle genannten Varianten unterstützen FreeRTOS. Unterschiede liegen in
 
 ## Scope-Grenzen
 1. Keine RPI/STM32-Unterstuetzung in dieser Version.
-2. Upload-Skills: `/upload` (intelligente Auswahl), `/upload-firmware` (nur App), `/initial-upload` (vollständig)
-3. Component Management: `idf_component.yml` für externe Libraries (Espressif Component Registry)
-4. Keine automatische Ruecksynchronisierung von Projekt-`CHANGES.md` ins Template.
-5. Keine statische Tool-Deaktivierung — Tool-Policies nicht via Hooks umsetzbar in VS Code Copilot Chat.
-6. Secure Boot/Flash Encryption sind optional – werden via `idf.py menuconfig` aktiviert
-7. TLS-Zertifikate müssen selbst bereitgestellt werden (nicht auto-generated)
+2. Lokales Build/Upload via Skills: `/build-project` und `/upload-firmware` (in generierten Projekten verfügbar)
+3. Keine automatische Ruecksynchronisierung von Projekt-`CHANGES.md` ins Template.
+4. Keine statische Tool-Deaktivierung — Tool-Policies nicht via Hooks umsetzbar in VS Code Copilot Chat.
+5. Secure Boot/Flash Encryption sind optional – werden via `idf.py menuconfig` aktiviert
+6. TLS-Zertifikate müssen selbst bereitgestellt werden (nicht auto-generated)
+7. Upload: NUR APP-Binarys (0x10000) – Bootloader/Partition einmalig initial
 8. Upload-Kommando ist identisch für alle Boards (0x10000)
-9. Bootloader + Partition werden NICHT bei jedem Upload geflasht (nur einmalig initial)
-10. ESP-IDF muss lokal installiert sein (IDF_PATH Umgebungsvariable)
-11. esttool.py muss installiert sein (über `pip install esptool`)
-12. Build/Upload-Skills sind lokale Automation – kein CI/CD, kein Cloud-Build
-13. Component Registry Download benötigt Internet-Verbindung
-14. Custom/Private Components können via Git-URL in `idf_component.yml` definiert werden
-## Future Extensions (Phase 4+)
-
-Diese Punkte sind NICHT in Phase 1-3 geplant, aber sind später möglich:
-
-1. **`/add-library` Skill** – Automatisierte Component-Integration
-   - User: `/add-library dht_sensor`
-   - Skill: Fügt zu `idf_component.yml` ein, führt `idf.py build` aus
-   - Spart manuelles YAML-Editing
-
-2. **CI/CD Integration** – GitHub Actions / GitLab CI
-   - Auto-Build bei Push
-   - Artifact-Generierung
-   - (aktuell: Scope-Constraint in Phase 1)
-
-3. **Custom Component Generator**
-   - Scaffold für neue Components
-   - `/create-component my_sensor` → generiert Grundgerüst
-
-4. **OTA (Over-The-Air) Updates**
-   - Firmware-Updates via WiFi
-   - Partition-Management für A/B Updates
-   - (aktuell: Scope-Constraint)
+9. ESP-IDF muss lokal installiert sein (IDF_PATH Umgebungsvariable)
+10. esttool.py muss installiert sein (über `pip install esptool`)
+11. Build/Upload-Skills sind lokale Automation – kein CI/CD, kein Cloud-Build
