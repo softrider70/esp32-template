@@ -51,8 +51,8 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
    - `sdkconfig.defaults.esp32s3` – Dual-Core, PSRAM
    - `sdkconfig.defaults.esp32c3` – Single-Core RISC-V, GPIO-Mapping
    - `sdkconfig.defaults.esp32c6` – Dual-Core, Thread-Support
-7. `CMakeLists.txt` (src/) für main.c Komponente
-8. `PROJECT.md.template` – Platzhalter für Projektname, Board, Power-Profil, FreeRTOS-Hinweise
+8. `CMakeLists.txt` (src/) für main.c Komponente
+9. `PROJECT.md.template` – Platzhalter für Projektname, Board, Power-Profil, FreeRTOS-Hinweise
 9. `README.md` – Generator-Workflow, ESP-IDF Setup-Anleitung
 10. `.github/agents/` – Lean-Workspace-Agent, Spezial-Agenten, copilot-instructions.md
 11. `.github/skills/build-project/` – Build-Skill
