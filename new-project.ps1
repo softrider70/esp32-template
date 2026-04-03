@@ -10,7 +10,7 @@ param(
     [ValidateRange(1, 5)]
     [int]$Board,
 
-    [string]$OutputDirectory = $PWD,
+    [string]$OutputDirectory = (Split-Path -Parent $PSScriptRoot),
 
     [switch]$SkipGit = $false,
     
