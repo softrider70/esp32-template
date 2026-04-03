@@ -10,7 +10,7 @@ param(
     [ValidateRange(1, 5)]
     [int]$Board,
 
-    [string]$OutputDirectory = (Split-Path -Parent $PSScriptRoot),
+    [string]$OutputDirectory = "",
 
     [switch]$SkipGit = $false,
     
@@ -171,32 +171,33 @@ function Copy-TemplateFiles {
     )
     
     try {
-        # List of files/folders to EXCLUDE from copy
-        $Exclude = @(
-            "new-project.ps1",
-            ".git",
-            ".instructions.md",
-            ".agent.md",
-            "README.md",
-            "PHASE*.md",
-            "BUILD_GUIDE.md",
-            "SECURITY.md",
-            "IMPLEMENTATION_PLAN.md",
-            "plan.md",
-            "test-*.ps1",
-            "skills",
-            "idf_component.yml",
+        # List of files/directories to INCLUDE (whitelist approach - cleaner!)
+        $Include = @(
+            "src",
+            "include",
+            "CMakeLists.txt",
+            "sdkconfig.defaults",
+            "sdkconfig.defaults.esp32",
+            "sdkconfig.defaults.esp32s2",
+            "sdkconfig.defaults.esp32s3",
+            "sdkconfig.defaults.esp32c3",
+            "sdkconfig.defaults.esp32c6",
+            "idf_component.yml.template",
             "PROJECT.md.template",
-            "README.md.template"
+            "README.md.template",
+            ".agent.md.template",
+            ".vscode",
+            ".github"
         )
         
-        Get-ChildItem -Path $SourceDir -Force | Where-Object { 
-            $item = $_
-            $exclude -notcontains $item.Name -and `
-            -not ($exclude | Where-Object { $item.Name -like $_ })
-        } | ForEach-Object {
-            Copy-Item -Path $_.FullName -Destination $TargetDir -Recurse -Force -ErrorAction Stop
+        foreach ($item in $Include) {
+            $sourcePath = Join-Path $SourceDir $item
+            if (Test-Path $sourcePath) {
+                $targetPath = Join-Path $TargetDir $item
+                Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force -ErrorAction Stop
+            }
         }
+        
         return $true
     }
     catch {
@@ -217,7 +218,8 @@ function Replace-ProjectVariables {
         "include/config.h",
         "PROJECT.md.template",
         "README.md.template",
-        ".agent.md.template"
+        ".agent.md.template",
+        "idf_component.yml.template"
     )
     
     $replaceCount = 0
@@ -257,6 +259,7 @@ function Rename-TemplateFiles {
             "PROJECT.md.template" = "PROJECT.md"
             "README.md.template" = "README.md"
             ".agent.md.template" = ".agent.md"
+            "idf_component.yml.template" = "idf_component.yml"
         }
         
         foreach ($oldName in $renames.Keys) {
@@ -342,6 +345,16 @@ try {
     
     # Validate template
     $TemplateDir = Test-TemplateDirectory
+    
+    # Set default OutputDirectory if not provided
+    if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+        $OutputDirectory = $PWD
+        
+        # Safety check: prevent creating projects inside template directory
+        if ($OutputDirectory -eq $TemplateDir) {
+            throw "Cannot create project inside template directory. Run from parent directory or specify -OutputDirectory"
+        }
+    }
     
     # Get board if not provided
     if ($Board -eq 0) {
