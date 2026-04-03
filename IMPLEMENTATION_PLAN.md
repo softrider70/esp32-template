@@ -22,7 +22,10 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
 ## Umsetzungsphasen
 
 ### Phase 1: Template-Basisdateien
-1. `plan.md` aus `.windsurf/plans/esp32-template-plan-258012.md` nach `template/plan.md` kopieren.
+1. `plan.md` – Kopiere Template-Plan ins Projekt (Quelle wird spezifiziert oder ist bereits vorhanden)
+   - Dieses Dokument (IMPLEMENTATION_PLAN.md) oder eine spezialisierte `esp32-template-plan.md` wird als `plan.md` ins Projekt kopiert
+   - Enthält technische Referenz für das Template
+   - Wird nicht vom Generator modifiziert
 2. `CMakeLists.txt` (Top-Level) – ESP-IDF Build-Konfiguration mit Komponenten-Struktur
    - Nutzt `PROJECT_NAME` Variable für Binary-Naming: `build/${PROJECT_NAME}.bin`
    - Generator setzt `PROJECT_NAME` beim Kopieren
@@ -42,7 +45,7 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
    - Logging Level
    - Core Frequency (80/160/240 MHz)
    - Partition Table Setting
-6. Fünf Board-spezifische `sdkconfig.defaults.<BOARD>` Varianten:
+7. Fünf Board-spezifische `sdkconfig.defaults.<BOARD>` Varianten:
    - `sdkconfig.defaults.esp32` – Standard Dual-Core
    - `sdkconfig.defaults.esp32s2` – Single-Core, `CONFIG_FREERTOS_NO_AFFINITY=y`
    - `sdkconfig.defaults.esp32s3` – Dual-Core, PSRAM
@@ -72,7 +75,7 @@ Ein reproduzierbares **ESP-IDF native** ESP32-Template mit interaktivem Projekt-
       * Copilot generiert aussagekräftige Message basierend auf tatsächlichen Änderungen
       * User bestätigt oder editiert Vorschlag
       * `git commit -m "<approved-message>"` ausführen
-      * Bietet Push-Option an
+      * Bietet Push-Option an: "Zu GitHub pushen? [j/n]" → Bei ja: `git push origin master`, Bei nein: Lokal gespeichert
 16. `SECURITY.md` – NVS-Setup, TLS/mTLS, Secure Boot Guide
 17. `BUILD_GUIDE.md` – Manuelle `idf.py build`, `esptool.py` Upload, Troubleshooting
 
@@ -191,7 +194,7 @@ Hinweis: Alle genannten Varianten unterstützen FreeRTOS. Unterschiede liegen in
 8. `.github/agents/` und `.github/copilot-instructions.md` sind im Zielprojekt vorhanden.
 9. `.github/skills/build-project/` und `.github/skills/upload-firmware/` sind im Zielprojekt vorhanden.
 10. `idf.py build` läuft ohne Fehler (oder mit Hinweis "IDF nicht installiert" [OK])
-11. `upload-firmware.ps1` Kommando ist: `esptool.py --port COMx --baud 921600 write_flash 0x10000 build/esp32-template.bin`
+12. Binary-Name ist `build/${PROJECT_NAME}.bin` (z.B. `build/MyDevice.bin`).
 12. Testlauf S2: Validierung dass `CONFIG_FREERTOS_NO_AFFINITY=y` in `sdkconfig.defaults.esp32s2` vorhanden ist.
 13. Testlauf S3 vs ESP32: Upload-Kommando ist **identisch** (beide 0x10000)
 14. Negativtests: ungültiger Projektname, ungültiges Board, existierender Zielordner.
