@@ -171,7 +171,30 @@ function Copy-TemplateFiles {
     )
     
     try {
-        Get-ChildItem -Path $SourceDir -Force | Where-Object { $_.Name -ne "new-project.ps1" -and $_.Name -ne ".git" } | ForEach-Object {
+        # List of files/folders to EXCLUDE from copy
+        $Exclude = @(
+            "new-project.ps1",
+            ".git",
+            ".instructions.md",
+            ".agent.md",
+            "README.md",
+            "PHASE*.md",
+            "BUILD_GUIDE.md",
+            "SECURITY.md",
+            "IMPLEMENTATION_PLAN.md",
+            "plan.md",
+            "test-*.ps1",
+            "skills",
+            "idf_component.yml",
+            "PROJECT.md.template",
+            "README.md.template"
+        )
+        
+        Get-ChildItem -Path $SourceDir -Force | Where-Object { 
+            $item = $_
+            $exclude -notcontains $item.Name -and `
+            -not ($exclude | Where-Object { $item.Name -like $_ })
+        } | ForEach-Object {
             Copy-Item -Path $_.FullName -Destination $TargetDir -Recurse -Force -ErrorAction Stop
         }
         return $true
@@ -192,9 +215,9 @@ function Replace-ProjectVariables {
         "src/main.c",
         "src/CMakeLists.txt",
         "include/config.h",
-        "idf_component.yml",
         "PROJECT.md.template",
-        ".github/copilot-instructions.md"
+        "README.md.template",
+        ".agent.md.template"
     )
     
     $replaceCount = 0
@@ -222,6 +245,34 @@ function Replace-ProjectVariables {
     }
     
     return $replaceCount -gt 0
+}
+
+function Rename-TemplateFiles {
+    param(
+        [string]$ProjectPath
+    )
+    
+    try {
+        $renames = @{
+            "PROJECT.md.template" = "PROJECT.md"
+            "README.md.template" = "README.md"
+            ".agent.md.template" = ".agent.md"
+        }
+        
+        foreach ($oldName in $renames.Keys) {
+            $oldPath = Join-Path $ProjectPath $oldName
+            $newPath = Join-Path $ProjectPath $renames[$oldName]
+            
+            if (Test-Path $oldPath) {
+                Rename-Item -Path $oldPath -NewName $renames[$oldName] -Force -ErrorAction Stop
+            }
+        }
+        return $true
+    }
+    catch {
+        Write-Warning "Template file renaming failed: $_"
+        return $false
+    }
 }
 
 function Set-BoardConfig {
@@ -338,6 +389,9 @@ try {
     Write-Host "  Template files copied"
     
     Replace-ProjectVariables -ProjectPath $ProjectPath -ProjectName $ProjectName | Out-Null
+    
+    Rename-TemplateFiles -ProjectPath $ProjectPath | Out-Null
+    Write-Host "  Template files renamed"
     
     Set-BoardConfig -ProjectPath $ProjectPath -BoardConfigName $BoardInfo.ConfigName | Out-Null
     Write-Host "  Board configuration applied"
