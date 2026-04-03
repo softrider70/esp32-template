@@ -12,8 +12,16 @@ param(
 
     [string]$OutputDirectory = $PWD,
 
-    [switch]$SkipGit = $false
+    [switch]$SkipGit = $false,
+    
+    [switch]$Force = $false,
+    
+    [switch]$NoConfirm = $false
 )
+
+# ============================================================================
+# Global Configuration
+# ============================================================================
 
 $BoardMap = @{
     1 = @{ Name = "ESP32"; ConfigName = "esp32"; Cores = 2; SRAM = "520KB"; PSRAM = "yes" }
@@ -23,14 +31,81 @@ $BoardMap = @{
     5 = @{ Name = "ESP32-C6"; ConfigName = "esp32c6"; Cores = 2; SRAM = "512KB"; PSRAM = "yes" }
 }
 
-$TemplateDir = $PSScriptRoot
-if (-not (Test-Path (Join-Path $TemplateDir "CMakeLists.txt"))) {
-    Write-Host "ERROR: Could not find template directory at $TemplateDir" -ForegroundColor Red
-    exit 1
+$ErrorActionPreference = "Stop"
+
+# ============================================================================
+# Validation & Error Handling
+# ============================================================================
+
+function Test-TemplateDirectory {
+    $TemplateDir = $PSScriptRoot
+    if (-not (Test-Path (Join-Path $TemplateDir "CMakeLists.txt"))) {
+        throw "Template directory not found at $TemplateDir (missing CMakeLists.txt)"
+    }
+    return $TemplateDir
 }
 
-# Show board menu if not provided
-if ($Board -eq 0) {
+function Test-ProjectName {
+    param([string]$Name)
+    
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        throw "Project name cannot be empty"
+    }
+    
+    if ($Name.Length -lt 3) {
+        throw "Project name must be at least 3 characters"
+    }
+    
+    if ($Name.Length -gt 50) {
+        throw "Project name must be max 50 characters"
+    }
+    
+    if ($Name -cnotmatch '^[a-z0-9\-]+$') {
+        throw "Project name must contain only lowercase letters, numbers, and hyphens"
+    }
+    
+    if ($Name -cmatch '^-|-$') {
+        throw "Project name cannot start or end with hyphen"
+    }
+    
+    if ($Name -cmatch '--') {
+        throw "Project name cannot contain consecutive hyphens"
+    }
+    
+    return $true
+}
+
+function Test-ProjectPath {
+    param([string]$Path)
+    
+    if (Test-Path $Path) {
+        throw "Directory already exists: $Path (use -Force to overwrite)"
+    }
+    
+    $parent = Split-Path -Parent $Path
+    if (-not (Test-Path $parent)) {
+        throw "Parent directory does not exist: $parent"
+    }
+    
+    return $true
+}
+
+function Test-GitInstalled {
+    try {
+        & git --version | Out-Null
+        return $true
+    }
+    catch {
+        Write-Warning "Git not found in PATH. Git initialization will be skipped."
+        return $false
+    }
+}
+
+# ============================================================================
+# User Input Functions
+# ============================================================================
+
+function Show-BoardMenu {
     Write-Host ""
     Write-Host "Select target board:" -ForegroundColor Cyan
     Write-Host ""
@@ -40,100 +115,252 @@ if ($Board -eq 0) {
     Write-Host "  4) ESP32-C3       (Single-core RISC-V, 400KB SRAM)" -ForegroundColor Yellow
     Write-Host "  5) ESP32-C6       (Dual-core RISC-V, 512KB SRAM, PSRAM)" -ForegroundColor Yellow
     Write-Host ""
-    $Board = Read-Host "Enter board number (1-5)"
+    
+    do {
+        $choice = Read-Host "Enter board number (1-5)"
+        if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le 5) {
+            return [int]$choice
+        }
+        Write-Host "Invalid input. Enter 1-5." -ForegroundColor Red
+    } while ($true)
 }
 
-# Get project name if not provided
-if (-not $ProjectName) {
+function Get-ProjectName {
     Write-Host ""
     Write-Host "Enter project name (lowercase, numbers, hyphens):" -ForegroundColor Cyan
-    $ProjectName = Read-Host "Project name"
+    
+    do {
+        $name = Read-Host "Project name"
+        try {
+            Test-ProjectName $name
+            return $name
+        }
+        catch {
+            Write-Host "Invalid: $_" -ForegroundColor Red
+        }
+    } while ($true)
 }
 
-$BoardInfo = $BoardMap[[int]$Board]
-$ProjectPath = Join-Path $OutputDirectory $ProjectName
+# ============================================================================
+# Project Creation
+# ============================================================================
 
-# Validate
-if (Test-Path $ProjectPath) {
-    Write-Host ""
-    Write-Host "ERROR: Directory already exists: $ProjectPath" -ForegroundColor Red
-    exit 1
-}
-
-# Show summary
-Write-Host ""
-Write-Host "Configuration:" -ForegroundColor Cyan
-Write-Host "  Project:  $ProjectName" -ForegroundColor White
-Write-Host "  Board:    $($BoardInfo.Name)" -ForegroundColor White
-Write-Host "  Location: $ProjectPath" -ForegroundColor White
-Write-Host ""
-
-$confirm = Read-Host "Proceed? (y/n)"
-if ($confirm -ne "y" -and $confirm -ne "Y") {
-    Write-Host "Cancelled"
-    exit 0
-}
-
-# Create project directory
-Write-Host ""
-Write-Host "Creating project..." -ForegroundColor Cyan
-New-Item -Path $ProjectPath -ItemType Directory | Out-Null
-
-# Copy template contents (all except new-project.ps1 and .git)
-Write-Host "  Copying template..."
-Get-ChildItem -Path $TemplateDir -Force | Where-Object { $_.Name -ne "new-project.ps1" -and $_.Name -ne ".git" } | ForEach-Object {
-    Copy-Item -Path $_.FullName -Destination $ProjectPath -Recurse -Force
-}
-
-# Replace project name in files
-Write-Host "  Replacing project name..."
-$files = @(
-    "CMakeLists.txt",
-    "src/main.c",
-    "src/CMakeLists.txt",
-    "include/config.h",
-    "idf_component.yml",
-    "PROJECT.md.template",
-    ".github/copilot-instructions.md"
-)
-
-foreach ($file in $files) {
-    $filePath = Join-Path $ProjectPath $file
-    if (Test-Path $filePath) {
-        (Get-Content $filePath) -replace '\$\{PROJECT_NAME\}', $ProjectName | Set-Content $filePath
+function New-ProjectDirectory {
+    param(
+        [string]$Path,
+        [bool]$Force = $false
+    )
+    
+    try {
+        if ((Test-Path $Path) -and $Force) {
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop | Out-Null
+        }
+        
+        New-Item -Path $Path -ItemType Directory -ErrorAction Stop | Out-Null
+        return $true
+    }
+    catch {
+        throw "Failed to create project directory: $_"
     }
 }
 
-# Setup board config
-Write-Host "  Configuring board..."
-$srcConfig = Join-Path $ProjectPath "sdkconfig.defaults.$($BoardInfo.ConfigName)"
-$dstConfig = Join-Path $ProjectPath "sdkconfig"
-
-if (Test-Path $srcConfig) {
-    Copy-Item -Path $srcConfig -Destination $dstConfig -Force
+function Copy-TemplateFiles {
+    param(
+        [string]$SourceDir,
+        [string]$TargetDir
+    )
+    
+    try {
+        Get-ChildItem -Path $SourceDir -Force | Where-Object { $_.Name -ne "new-project.ps1" -and $_.Name -ne ".git" } | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $TargetDir -Recurse -Force -ErrorAction Stop
+        }
+        return $true
+    }
+    catch {
+        throw "Failed to copy template: $_"
+    }
 }
 
-# Initialize git
-if (-not $SkipGit) {
-    Write-Host "  Initializing git..."
-    Push-Location $ProjectPath
+function Replace-ProjectVariables {
+    param(
+        [string]$ProjectPath,
+        [string]$ProjectName
+    )
     
-    & git init | Out-Null
-    & git config user.email "developer@local" | Out-Null
-    & git config user.name "ESP32 Developer" | Out-Null
+    $files = @(
+        "CMakeLists.txt",
+        "src/main.c",
+        "src/CMakeLists.txt",
+        "include/config.h",
+        "idf_component.yml",
+        "PROJECT.md.template",
+        ".github/copilot-instructions.md"
+    )
     
-    & git add . | Out-Null
-    & git commit -m "init: Initialize ESP32 project from template" | Out-Null
+    $replaceCount = 0
+    $errorCount = 0
     
-    Pop-Location
+    foreach ($file in $files) {
+        $filePath = Join-Path $ProjectPath $file
+        if (Test-Path $filePath) {
+            try {
+                $content = Get-Content $filePath -Raw -ErrorAction Stop
+                $newContent = $content -replace '\$\{PROJECT_NAME\}', $ProjectName
+                Set-Content $filePath $newContent -NoNewline -ErrorAction Stop
+                $replaceCount++
+            }
+            catch {
+                Write-Warning "Could not update $file : $_"
+                $errorCount++
+            }
+        }
+    }
+    
+    Write-Host "  Replaced variables in $replaceCount files"
+    if ($errorCount -gt 0) {
+        Write-Warning "$errorCount file(s) could not be updated"
+    }
+    
+    return $replaceCount -gt 0
 }
 
-# Show completion
-Write-Host ""
-Write-Host "SUCCESS: Project created!" -ForegroundColor Green
-Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. cd $ProjectName" -ForegroundColor Yellow
-Write-Host "  2. /build-project" -ForegroundColor Yellow
-Write-Host "  3. /initial-upload" -ForegroundColor Yellow
-Write-Host ""
+function Set-BoardConfig {
+    param(
+        [string]$ProjectPath,
+        [string]$BoardConfigName
+    )
+    
+    try {
+        $srcConfig = Join-Path $ProjectPath "sdkconfig.defaults.$BoardConfigName"
+        $dstConfig = Join-Path $ProjectPath "sdkconfig"
+        
+        if (Test-Path $srcConfig) {
+            Copy-Item -Path $srcConfig -Destination $dstConfig -Force -ErrorAction Stop
+            return $true
+        }
+        else {
+            Write-Warning "Board config not found: $BoardConfigName"
+            return $false
+        }
+    }
+    catch {
+        throw "Failed to apply board configuration: $_"
+    }
+}
+
+function Initialize-GitRepository {
+    param(
+        [string]$ProjectPath,
+        [string]$ProjectName,
+        [string]$BoardName
+    )
+    
+    if (-not (Test-GitInstalled)) {
+        return $false
+    }
+    
+    try {
+        Push-Location $ProjectPath -ErrorAction Stop
+        
+        & git init 2>&1 | Out-Null
+        & git config user.email "developer@local" 2>&1 | Out-Null
+        & git config user.name "ESP32 Developer" 2>&1 | Out-Null
+        
+        & git add . 2>&1 | Out-Null
+        
+        & git commit "--message" "init: Initialize ESP32 project from template" 2>&1 | Out-Null
+        
+        Pop-Location
+        return $true
+    }
+    catch {
+        Pop-Location
+        Write-Warning "Git initialization failed: $_"
+        return $false
+    }
+}
+
+# ============================================================================
+# Main Execution
+# ============================================================================
+
+try {
+    Write-Host ""
+    Write-Host "ESP32 Project Generator v1.0" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Validate template
+    $TemplateDir = Test-TemplateDirectory
+    
+    # Get board if not provided
+    if ($Board -eq 0) {
+        $Board = Show-BoardMenu
+    }
+    
+    # Get project name if not provided
+    if (-not $ProjectName) {
+        $ProjectName = Get-ProjectName
+    }
+    
+    # Validate inputs
+    Test-ProjectName $ProjectName | Out-Null
+    
+    $BoardInfo = $BoardMap[$Board]
+    $ProjectPath = Join-Path $OutputDirectory $ProjectName
+    
+    # Check if project exists (unless -Force)
+    if ((Test-Path $ProjectPath) -and -not $Force) {
+        throw "Directory already exists: $ProjectPath (use -Force to overwrite)"
+    }
+    
+    # Show summary
+    Write-Host "Configuration:" -ForegroundColor Cyan
+    Write-Host "  Project:  $ProjectName" -ForegroundColor White
+    Write-Host "  Board:    $($BoardInfo.Name)" -ForegroundColor White
+    Write-Host "  Location: $ProjectPath" -ForegroundColor White
+    Write-Host ""
+    
+    if (-not $NoConfirm) {
+        if (-not (Read-Host "Proceed? (y/n)" -eq "y")) {
+            Write-Host "Cancelled"
+            exit 0
+        }
+    }
+    
+    # Create project
+    Write-Host ""
+    Write-Host "Creating project..." -ForegroundColor Cyan
+    
+    New-ProjectDirectory -Path $ProjectPath -Force $Force | Out-Null
+    Write-Host "  Project directory created"
+    
+    Copy-TemplateFiles -SourceDir $TemplateDir -TargetDir $ProjectPath | Out-Null
+    Write-Host "  Template files copied"
+    
+    Replace-ProjectVariables -ProjectPath $ProjectPath -ProjectName $ProjectName | Out-Null
+    
+    Set-BoardConfig -ProjectPath $ProjectPath -BoardConfigName $BoardInfo.ConfigName | Out-Null
+    Write-Host "  Board configuration applied"
+    
+    if (-not $SkipGit) {
+        if (Initialize-GitRepository -ProjectPath $ProjectPath -ProjectName $ProjectName -BoardName $BoardInfo.Name) {
+            Write-Host "  Git repository initialized"
+        }
+    }
+    
+    # Success
+    Write-Host ""
+    Write-Host "SUCCESS: Project created!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Next steps:" -ForegroundColor Cyan
+    Write-Host "  1. cd $ProjectName" -ForegroundColor Yellow
+    Write-Host "  2. /build-project" -ForegroundColor Yellow
+    Write-Host "  3. /initial-upload" -ForegroundColor Yellow
+    Write-Host ""
+}
+catch {
+    Write-Host ""
+    Write-Host "ERROR: $_" -ForegroundColor Red
+    exit 1
+}
+
