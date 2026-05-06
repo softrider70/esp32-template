@@ -40,20 +40,28 @@ Ein reproduzierbares **ESP-IDF native** Template für ESP32-Projekte mit automat
 - ESP32-C3 (RISC-V Single-Core)
 - ESP32-C6 (Dual-Core + Thread)
 
+✅ **CYD (Cheap Yellow Display) Support**
+- ESP32-S3 mit 2.8" ILI9341 TFT Display (320x240)
+- XPT2046 Touch Controller (resistiv, vollbild)
+- RGB LEDs (GPIO4, GPIO16, GPIO17)
+- Zwei separate SPI Busse (Display + Touch)
+- Vollständige Pin-Belegung und Farbschema-Konfiguration
+
 ✅ **Intelligente Skills & Automation**
 - `/build-project` – Kompiliert Firmware
 - `/upload` – Smart Router (First time? → Initial / Iterativ)
 - `/upload-firmware` – App-only Flash (~3sec)
 - `/initial-upload` – Vollständiger Flash (~20sec)
 - `/commit` – Git mit AI-generierter Message
-
-✅ **Component Management**
+- `/ota-update` – OTA Firmware-Update (Bosch-Feature) 
+- `/commit` – Git mit AI-generierter Message
 - `idf_component.yml` für Dependencies
 - Espressif Component Registry Support
 - Zukünftig: `/add-library` Auto-Integration
 
 ---
 
+##  Quick Start
 ## 📋 Quick Start
 
 ### 1. Template klonen
@@ -139,7 +147,122 @@ code src/main.c
 
 ---
 
-## 📚 Dateistruktur (generiertes Projekt)
+## �️ CYD (Cheap Yellow Display) Board
+
+### Hardware-Spezifikationen
+- **Chip**: ESP32-D0WD-V3 (Revision 301) **- Normaler ESP32, kein S3!**
+- **Display**: 2.8" ILI9341 TFT (320x240 Pixel, 16-bit)
+- **Touch**: XPT2046 resistiver Touch Controller
+- **RGB LEDs**: 3x LEDs (GPIO4, GPIO16, GPIO17)
+- **Flash**: 2MB (erkannt als 4MB)
+- **USB**: COM11 (Windows)
+
+> **Wichtig**: Das CYD Board verwendet einen **normalen ESP32 (D0WD-V3)**, keinen ESP32-S3!  
+> Verify: `CONFIG_IDF_TARGET="esp32"` und `CONFIG_SOC_CAPS_ECO_VER_MAX=301`
+
+### ✅ Verifizierte Pin-Belegung
+
+#### RGB LEDs (Active Low - LOW=AN, HIGH=AUS)
+```
+🔴 ROT LED    - GPIO4
+🟢 GRÜN LED   - GPIO16  
+🔵 BLAU LED   - GPIO17
+⚪ WEISS      - GPIO4+GPIO16+GPIO17
+```
+
+#### Display SPI (HSPI)
+```
+📺 TFT_DC    - GPIO2
+📺 TFT_CS    - GPIO15
+📺 MOSI      - GPIO13
+📺 MISO      - GPIO12
+📺 CLK       - GPIO14
+📺 RST       - GPIO17
+📺 BLK       - GPIO21
+```
+
+#### Touch SPI (VSPI) - SEPARATER BUS!
+```
+👆 TOUCH_CS  - GPIO33
+👆 TOUCH_IRQ - GPIO36
+👆 MOSI      - GPIO32
+👆 MISO      - GPIO39
+👆 CLK       - GPIO25
+```
+
+#### System
+```
+UART      - GPIO1(TX), GPIO3(RX)
+USB       - COM11 (Windows)
+Flash     - 2MB (erkannt als 4MB)
+```
+
+### 🎨 Farbschema-Konfiguration
+
+#### ILI9341 Display
+```
+🔧 MADCTL = 0x40 (RGB Mode) ✅
+📊 Hardware-Variante: RGB statt BGR ✅
+🎯 Farben: ROT, GRÜN, BLAU, GELB, CYAN, MAGENTA, WEISS, SCHWARZ, GRAU ✅
+```
+
+#### RGB LED Farbkombinationen
+```
+🔴 ROT      = GPIO4 (LOW)
+🟢 GRÜN     = GPIO16 (LOW)
+🔵 BLAU     = GPIO17 (LOW)
+🟡 GELB     = GPIO4+GPIO16 (LOW)
+🟦 CYAN     = GPIO16+GPIO17 (LOW)
+🟣 MAGENTA  = GPIO4+GPIO17 (LOW)
+⚪ WEISS    = GPIO4+GPIO16+GPIO17 (LOW)
+⚫ SCHWARZ  = GPIO4+GPIO16+GPIO17 (HIGH)
+```
+
+### 👆 Touch System
+
+#### XPT2046 Touch Controller
+```
+📡 SEPARATER SPI Bus (nicht shared!) ✅
+🔌 Touch Pins: CS=33, IRQ=36, MOSI=32, MISO=39, CLK=25 ✅
+🎯 Vollbild Touch-Erkennung ✅
+🌈 Farbwechsel bei Touch ✅
+📊 Rohwerte: X=1600-2000, Y=2300-3100, Z=800-2100 ✅
+```
+
+#### SPI Konfiguration
+```
+Display: 26MHz, DMA aktiviert, SPI2_HOST
+Touch:   2.5MHz, DMA deaktiviert, SPI3_HOST
+```
+
+#### XPT2046 Kommandos (12-bit DFR Mode)
+```
+X-Position:  0x90 (S=1, A2A1A0=001, MODE=0, SER=0, PD=00)
+Y-Position:  0xD0 (S=1, A2A1A0=101, MODE=0, SER=0, PD=00)
+Z1 Pressure:  0xB0 (S=1, A2A1A0=011, MODE=0, SER=0, PD=00)
+Z2 Pressure:  0xC0 (S=1, A2A1A0=100, MODE=0, SER=0, PD=00)
+Power-Down:   0x80 (S=1, PD=00)
+```
+
+#### Touch-Algorithmus
+1. IRQ Pin prüfen (GPIO36, LOW = Touch aktiv)
+2. Z1 und Z2 lesen für Pressure-Berechnung
+3. Wenn Pressure > 50: X und Y lesen
+4. Power-Down Kommando senden
+5. Rohwerte auf Screen-Koordinaten mappen
+
+### 🔧 CYD-Konfiguration im Template
+
+Für CYD-Projekte automatisch konfiguriert:
+- **Board**: ESP32 (D0WD-V3) - **NICHT ESP32-S3!**
+- **Display**: ILI9341 mit RGB Mode (0x40)
+- **Touch**: XPT2046 mit separatem SPI Bus
+- **LVGL**: v8.3.0 mit Touch-Unterstützung
+- **Dependencies**: lvgl/lvgl automatisch hinzugefügt
+
+---
+
+## � Dateistruktur (generiertes Projekt)
 
 ```
 projekt-name/
@@ -186,6 +309,18 @@ Output:
   ✓ Größe & Speicherauslastung
 Error-Handling: 
   → Hinweis auf idf.py menuconfig bei Fehlern
+```
+
+### `/ota-update` (Bosch-Feature)
+OTA-Firmware-Update für IoT-Geräte. Lädt neue Firmware von einem Server herunter und flashthese über das Netzwerk.
+
+```
+Input: OTA-Server-URL (optional)
+Output: 
+  ✓ Download-Log
+  ✓ Firmware-Validierung
+  ✓ OTA-Flash-Status
+  ✓ Rollback-Funktion bei Fehlern
 ```
 
 ### `/upload` (Smart Router)
@@ -252,8 +387,25 @@ Bearbeite `idf_component.yml`:
 dependencies:
   espressif/button: "^2.4.0"
   espressif/dht: "^1.0.0"
+  # Für CYD-Projekte automatisch:
+  lvgl/lvgl: "^8.3.0"
 ```
 Dann: `/build-project` → Dependencies werden automatisch gelöst
+
+### CYD-Projekt erstellen?
+```powershell
+# CYD-spezifisches Projekt mit Display und Touch
+.\new-project.ps1 -ProjectName "my-cyd-project" -Board "1"  # ESP32!
+
+# Automatisch konfiguriert:
+# - ESP32 (D0WD-V3) mit CYD Pin-Belegung
+# - ILI9341 Display Driver (RGB Mode)
+# - XPT2046 Touch Driver (separater SPI)
+# - LVGL v8.3.0 mit Touch-Unterstützung
+# - RGB LED Steuerung
+```
+
+> **Hinweis**: Für CYD-Projekte immer **Board 1 (ESP32)** verwenden, nicht ESP32-S3!
 
 ### Secrets Management?
 Nutze NVS (Non-Volatile Storage), nicht hardcoded:
@@ -318,7 +470,7 @@ idf install
 - [ ] SECURITY.md
 - [ ] BUILD_GUIDE.md
 - [ ] .github/agents/* (Copilot Config)
-- [ ] .github/skills/** (4 Skills: build, upload-router, firmware, initial, commit)
+- [ ] .github/skills/** (5 Skills: build, upload-router, upload-firmware, initial-upload, commit, ota-update)
 
 **Pending Phase 2:**
 - [ ] new-project.ps1 – Generator Script
@@ -333,7 +485,7 @@ idf install
 
 - **Phase 4a:** `/add-library` Skill (Auto-YAML-Injection)
 - **Phase 4b:** CI/CD GitHub Actions (Auto-Build)
-- **Phase 4c:** OTA (Over-The-Air) Updates
+- **Phase 4c:** OTA (Over-The-Air) Updates ✅ **(Bosch-Feature implementiert)**
 - **Phase 4d:** `/build-all-boards` (Multi-Board Parallel)
 - **Phase 4e:** WebUI Dashboard (littlefs + REST API)
 
