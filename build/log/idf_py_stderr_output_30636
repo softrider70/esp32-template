@@ -1,0 +1,52 @@
+Command: cmake -G Ninja -B C:\Users\win4g\Downloads\GitHub\VS-Projekte\CascadeProjects\template\build -DPYTHON_DEPS_CHECKED=1 -DPYTHON=C:\Espressif\tools\python\v6.0\venv\Scripts\python.exe -DESP_PLATFORM=1 -DSDKCONFIG='c:\Users\win4g\Downloads\GitHub\VS-Projekte\CascadeProjects\template\sdkconfig' -DCCACHE_ENABLE=False C:\Users\win4g\Downloads\GitHub\VS-Projekte\CascadeProjects\template
+CMake Deprecation Warning at CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Error at C:/Espressif/tools/cmake/4.0.3/share/cmake-4.0/Modules/CMakeTestCCompiler.cmake:67 (message):
+  The C compiler
+
+    "C:/Espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clang.exe"
+
+  is not able to compile a simple test program.
+
+  It fails with the following output:
+
+    Change Dir: 'C:/Users/win4g/Downloads/GitHub/VS-Projekte/CascadeProjects/template/build/CMakeFiles/CMakeScratch/TryCompile-71zlg9'
+    
+    Run Build Command(s): C:/Espressif/tools/ninja/1.12.1/ninja.exe -v cmTC_05b2e
+    [1/2] C:\Espressif\tools\esp-clang\esp-20.1.1_20250829\esp-clang\bin\clang.exe    -MD -MT CMakeFiles/cmTC_05b2e.dir/testCCompiler.c.obj -MF CMakeFiles\cmTC_05b2e.dir\testCCompiler.c.obj.d -o CMakeFiles/cmTC_05b2e.dir/testCCompiler.c.obj -c C:/Users/win4g/Downloads/GitHub/VS-Projekte/CascadeProjects/template/build/CMakeFiles/CMakeScratch/TryCompile-71zlg9/testCCompiler.c
+    [2/2] C:\windows\system32\cmd.exe /C "cd . && C:\Espressif\tools\esp-clang\esp-20.1.1_20250829\esp-clang\bin\clang.exe   CMakeFiles/cmTC_05b2e.dir/testCCompiler.c.obj -o cmTC_05b2e.exe -Wl,--out-implib,libcmTC_05b2e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+    FAILED: cmTC_05b2e.exe 
+    C:\windows\system32\cmd.exe /C "cd . && C:\Espressif\tools\esp-clang\esp-20.1.1_20250829\esp-clang\bin\clang.exe   CMakeFiles/cmTC_05b2e.dir/testCCompiler.c.obj -o cmTC_05b2e.exe -Wl,--out-implib,libcmTC_05b2e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+    ld.lld: error: unknown argument '--major-image-version'
+    ld.lld: error: unknown argument '--minor-image-version'
+    ld.lld: error: cannot open 0: No such file or directory
+    ld.lld: error: cannot open 0: No such file or directory
+    ld.lld: error: unable to find library -lkernel32
+    ld.lld: error: unable to find library -luser32
+    ld.lld: error: unable to find library -lgdi32
+    ld.lld: error: unable to find library -lwinspool
+    ld.lld: error: unable to find library -lshell32
+    ld.lld: error: unable to find library -lole32
+    ld.lld: error: unable to find library -loleaut32
+    ld.lld: error: unable to find library -luuid
+    ld.lld: error: unable to find library -lcomdlg32
+    ld.lld: error: unable to find library -ladvapi32
+    clang: error: ld command failed with exit code 1 (use -v to see invocation)
+    ninja: build stopped: subcommand failed.
+    
+    
+
+
+
+  CMake will not be able to correctly generate this project.
+Call Stack (most recent call first):
+  CMakeLists.txt:3 (project)
+
+
