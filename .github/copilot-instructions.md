@@ -1,37 +1,21 @@
-# Copilot Configuration for ESP32 Template
+# Copilot-Instruktionen – ESP32-Vorlage (template)
 
-## Skills (Automation)
+**Dieses Projekt ist die Vorlage** fuer neue ESP32-Projekte: ESP-IDF,
+Projekt-Generator und mehrere `sdkconfig.defaults` fuer verschiedene Chips
+(ESP32, S2, S3, C3, C6).
 
-### Build & Upload
-- **/build-project** — Compile the project, generate `${PROJECT_NAME}.bin`
-- **/upload** — Smart router (first-time setup vs. update)
-- **/upload-firmware** — Fast app-only update (~3 seconds)
-- **/initial-upload** — Full bootloader + partition + app (~20 seconds, one-time setup)
+- Doku im Projekt: `README.md`, `BUILD_GUIDE.md` (Bauen und Hochladen von Hand),
+  `SECURITY.md` (NVS-Verschluesselung, Secure Boot, TLS), `include/config.h`.
+- **Sprache ist Deutsch** - Antworten, Kommentare und Doku.
+- Kurze Saetze, Fachwoerter erklaeren, keine Vermutungen: pruefen statt raten.
+- Bauen und flashen: ESP-IDF (6.1) aktivieren, PATH aufraeumen, dann
+  `idf.py -p COMx flash`.
 
-### Version Control
-- **/commit** — Stage changes, generate smart commit message, push to git
+## Hinweis zu den alten Skill-Dateien
 
-## Supported Boards
-The template auto-supports 5 ESP32 variants:
-- **ESP32** (dual-core, 520KB SRAM + PSRAM)
-- **ESP32-S2** (single-core, 320KB SRAM)
-- **ESP32-S3** (dual-core, 512KB SRAM + PSRAM, USB)
-- **ESP32-C3** (single-core RISC-V, 400KB SRAM)
-- **ESP32-C6** (dual-core RISC-V, 512KB SRAM + PSRAM)
-
-## Workflow
-```
-1. Code change
-2. /build-project       (compile)
-3. /upload-firmware     (fast upload)
-4. (watch output)
-5. /commit              (save to git)
-```
-
-## Documentation
-- See `BUILD_GUIDE.md` for manual build/upload procedures
-- See `SECURITY.md` for NVS encryption, Secure Boot, TLS setup
-- See `.github/TEMPLATE_HELP.md` for comprehensive German guide
-
----
-Template Version: 0.1.0
+Unter `.github/agents/<name>/SKILL.md` liegt noch eine Reihe alter Anleitungen
+(`build-project`, `upload`, `initial-upload`, `commit`, ...). Diese Befehle
+haben **nie funktioniert**: VS Code sucht Anleitungen dieser Art in
+`.github/skills/<name>/`, und die Kopfzeilen der alten Dateien passen nicht
+(`title:` statt `name:`/`description:`). Wenn so etwas gebraucht wird, bitte
+neu am richtigen Ort anlegen - nicht die alten Dateien weiterverwenden.
