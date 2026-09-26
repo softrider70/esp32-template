@@ -324,13 +324,30 @@ function Initialize-GitRepository {
     try {
         Push-Location $ProjectPath -ErrorAction Stop
         
+        # Git schreibt Hinweise (z. B. "LF will be replaced by CRLF") auf den
+        # Fehlerkanal. Mit $ErrorActionPreference = "Stop" wird daraus eine
+        # Ausnahme, und der Generator meldete faelschlich "Git initialization
+        # failed", obwohl nur eine Warnung kam. Deshalb hier lokal Continue und
+        # den Exit-Code selbst pruefen.
+        $vorher = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
         & git init 2>&1 | Out-Null
         & git config user.email "developer@local" 2>&1 | Out-Null
         & git config user.name "ESP32 Developer" 2>&1 | Out-Null
-    # Pre-Push-Schutz aktivieren: prueft vor jedem Push auf Passwoerter, Tokens,
-    # echte E-Mail-Adressen, MAC-Adressen und Benutzernamen in Pfaden.
-    & git config core.hooksPath .githooks 2>&1 | Out-Null
+        # Pre-Push-Schutz aktivieren: prueft vor jedem Push auf Passwoerter,
+        # Tokens, echte E-Mail-Adressen, MAC-Adressen und Benutzernamen in Pfaden.
+        & git config core.hooksPath .githooks 2>&1 | Out-Null
+        # Ohne "add" gibt es nichts zu committen (vorher: "nothing added to
+        # commit") - der Init-Commit scheiterte dadurch immer.
+        & git add . 2>&1 | Out-Null
         & git commit "--message" "init: Initialize ESP32 project from template" 2>&1 | Out-Null
+        $commitOk = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = $vorher
+
+        if (-not $commitOk) {
+            Write-Warning "Git-Init-Commit fehlgeschlagen (Exit-Code $LASTEXITCODE)"
+        }
         
         Pop-Location
         return $true
