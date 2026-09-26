@@ -6,11 +6,15 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "config.h"
+#include "version.h"
+#include "esp_chip_info.h"
 
 static const char *TAG = "${PROJECT_NAME}";
 
 // NVS handle for persistent storage
-nvs_handle_t nvs_handle;
+/* NICHT "nvs_handle" nennen: der Name kollidiert mit dem Typ und der Compiler
+ * meldet "redeclared as different kind of symbol". */
+nvs_handle_t g_nvs_handle;
 
 /**
  * @brief Initialize NVS (Non-Volatile Storage)
@@ -25,7 +29,7 @@ static esp_err_t init_nvs(void)
     }
     ESP_ERROR_CHECK(ret);
     
-    ret = nvs_open("${PROJECT_NAME}", NVS_READWRITE, &nvs_handle);
+    ret = nvs_open("${PROJECT_NAME}", NVS_READWRITE, &g_nvs_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to open NVS handle: %s", esp_err_to_name(ret));
         return ret;
@@ -62,6 +66,10 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "ESP32 Template Application Started");
     ESP_LOGI(TAG, "Project: ${PROJECT_NAME}");
+    /* Build-Nummer sichtbar machen: sie steht in include/version.h, das bei
+     * jedem Build neu erzeugt wird. So laesst sich nach mehreren
+     * Flashvorgaengen sagen, welcher Stand laeuft. */
+    ESP_LOGI(TAG, "%s bereit - Build %d", APP_VERSION_STRING, BUILD_NUMBER);
     
     // Initialize NVS
     if (init_nvs() != ESP_OK) {
@@ -70,7 +78,11 @@ void app_main(void)
     }
     
     // Print system info
-    ESP_LOGI(TAG, "Chip revision: %d", esp_chip_revision());
+    /* esp_chip_revision() gibt es in ESP-IDF 6.1 nicht mehr - dafuer
+     * esp_chip_info(). */
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    ESP_LOGI(TAG, "Chip: %d Kerne, Revision %d", chip_info.cores, chip_info.revision);
     ESP_LOGI(TAG, "Free heap: %u bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "Minimum free heap (ever): %u bytes", esp_get_minimum_free_heap_size());
     
@@ -78,9 +90,9 @@ void app_main(void)
     BaseType_t ret = xTaskCreate(
         app_task,              // Task function
         "${PROJECT_NAME}_app", // Task name
-        CONFIG_APP_STACK_SIZE, // Stack size (from sdkconfig)
+        APP_TASK_STACK_SIZE,   // Stack size (bytes, NICHT Woerter!)
         NULL,                  // Task parameter
-        CONFIG_APP_PRIORITY,   // Task priority
+        APP_TASK_PRIORITY,     // Task priority
         NULL                   // Task handle
     );
     

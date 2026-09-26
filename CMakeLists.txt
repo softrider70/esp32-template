@@ -1,22 +1,13 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
-project(${PROJECT_NAME} C)
+# Die Anwendung liegt in src/ - das ist KEIN Standard-Komponentenordner von
+# ESP-IDF. Ohne diese Zeile wird src/main.c nie gebaut und der Linker meldet
+# "undefined reference to app_main". Muss vor project.cmake stehen.
+set(EXTRA_COMPONENT_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-set(ESP_PLATFORM esp32)
-set(EXTRA_CMAKE_MODULES ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
+# WICHTIG: project.cmake MUSS vor project() eingebunden werden. Steht project()
+# davor, kennt CMake die ESP-IDF-Toolchain noch nicht und bricht ab mit
+# "No CMAKE_C_COMPILER could be found".
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
-# Include FreeRTOS configuration
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# Source files
-set(SRCS
-    src/main.c
-)
-
-# Project setup
-project_start(${PROJECT_NAME})
-idf_component_register(SRCS ${SRCS}
-                       INCLUDE_DIRS include)
-project_end()
+project(${PROJECT_NAME})

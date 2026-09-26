@@ -187,7 +187,13 @@ function Copy-TemplateFiles {
             "README.md.template",
             ".agent.md.template",
             ".vscode",
-            ".github"
+            ".github",
+            # Build-Zaehler und Umgebung mitnehmen: ohne diese Eintraege fehlen
+            # im neuen Projekt tools/increment_build.py (Zaehler),
+            # activate-esp-idf.ps1 und die .gitignore (build/, version.h).
+            "tools",
+            "activate-esp-idf.ps1",
+            ".gitignore"
         )
         
         foreach ($item in $Include) {
