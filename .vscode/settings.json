@@ -12,5 +12,6 @@
     },
     "idf.flashBaudRate": "921600",
     "idf.openOcdConfigs": ["interface/ftdi/esp32_devkitj_v1.cfg", "target/esp32.cfg"],
-    "idf.showOnboardingOnInit": false
+    "idf.showOnboardingOnInit": false,
+    "idf.currentSetup": "${env:USERPROFILE}\\Downloads\\GitHub\\VS-Projekte\\CascadeProjects\\esp-idf"
 }

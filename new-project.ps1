@@ -191,9 +191,11 @@ function Copy-TemplateFiles {
             # Build-Zaehler und Umgebung mitnehmen: ohne diese Eintraege fehlen
             # im neuen Projekt tools/increment_build.py (Zaehler),
             # activate-esp-idf.ps1 und die .gitignore (build/, version.h).
+            # .githooks enthaelt den Pre-Push-Schutz (Sicherheitspruefung).
             "tools",
             "activate-esp-idf.ps1",
-            ".gitignore"
+            ".gitignore",
+            ".githooks"
         )
         
         foreach ($item in $Include) {
@@ -325,9 +327,9 @@ function Initialize-GitRepository {
         & git init 2>&1 | Out-Null
         & git config user.email "developer@local" 2>&1 | Out-Null
         & git config user.name "ESP32 Developer" 2>&1 | Out-Null
-        
-        & git add . 2>&1 | Out-Null
-        
+    # Pre-Push-Schutz aktivieren: prueft vor jedem Push auf Passwoerter, Tokens,
+    # echte E-Mail-Adressen, MAC-Adressen und Benutzernamen in Pfaden.
+    & git config core.hooksPath .githooks 2>&1 | Out-Null
         & git commit "--message" "init: Initialize ESP32 project from template" 2>&1 | Out-Null
         
         Pop-Location
